@@ -41,9 +41,15 @@ from sklearn.exceptions import DataConversionWarning
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit, GridSearchCV, RandomizedSearchCV
 
 from rdkit import Chem
-from rdkit.Chem import rdMolDescriptors, AllChem, FindMolChiralCenters, Descriptors
+from rdkit.Chem import rdMolDescriptors, AllChem
 from rdkit.Chem.Fingerprints import FingerprintMols
 from rdkit.Chem.rdMolDescriptors import GetHashedAtomPairFingerprintAsBitVect, GetHashedTopologicalTorsionFingerprintAsBitVect
+
+import pandas as pd
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 def mkdir_p(path):
@@ -57,16 +63,15 @@ def mkdir_p(path):
         else:
             raise
 
-def exceptions_str():
-    return traceback.format_exception_only(
-        sys.exc_info()[0], sys.exc_info()[1])[0].strip()
 
-# auxiliary class for comma-delimited command line arguments
 def csv_list(init):
+    """auxiliary function to parse comma-delimited command line arguments"""
     field = init.split(',')
     return [x.strip() for x in field if len(x)]
 
+
 def mol_to_fp_fun(fp_type, nBits=2048):
+    """instantiate fingerprinting function from string"""
     if fp_type == 'ecfp4':
         return lambda x: AllChem.GetMorganFingerprintAsBitVect(x, 2, nBits=nBits)
     if fp_type == 'ecfp6':
@@ -88,11 +93,6 @@ def mol_to_fp_fun(fp_type, nBits=2048):
         logging.error('unknown fingerprint type: ' + fp_type)
         sys.exit(1)
 
-import pandas as pd
-
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
 warnings.filterwarnings(action='ignore', category=DataConversionWarning)
@@ -107,7 +107,14 @@ def warn_with_traceback(message, category, filename, lineno, file=None, line=Non
     traceback.print_stack(file=log)
     log.write(warnings.formatwarning(message, category, filename, lineno, line))
 
+
 warnings.showwarning = warn_with_traceback
+
+
+def exceptions_str():
+    return traceback.format_exception_only(
+        sys.exc_info()[0], sys.exc_info()[1])[0].strip()
+
 
 # grid of possible hyperparameter settings for optimization
 # note: order is significant for 2nd stage local optimization
@@ -122,7 +129,7 @@ PARAM_GRID = {
         ('min_samples_split', [2, 5, 10, 20, 50]),
         ('min_samples_leaf', [1, 5, 10, 20, 50]),
         ('n_estimators', [10, 50, 100, 200, 500]),
-        ]),
+    ]),
     'gbm': OrderedDict([
         ('max_depth', [3, 4, 5, 6, 8]),
         ('min_samples_split', [2, 5, 10, 20, 50]),
@@ -132,27 +139,27 @@ PARAM_GRID = {
         ('subsample', [0.3, 0.5, 0.8, 1.0]),
         ('learning_rate', [0.001, 0.01, 0.05, 0.1, 0.2]),
         ('n_estimators', [10, 50, 100, 200, 500]),
-        ]),
+    ]),
     'xgb': OrderedDict([
         ('scale_pos_weight', [1, 5, 10, 20]),
         ('max_depth', [3, 4, 5, 6, 8, 12]),
         ('min_child_weight', [1, 2, 5, 10]),
         ('gamma', [0.0, 0.2, 0.5, 1.0]),
-        ('max_delta_step', [0,1,5,10]),
+        ('max_delta_step', [0, 1, 5, 10]),
         ('subsample', [0.5, 0.8, 1.0]),
         ('colsample_bytree', [0.5, 0.8, 1.0]),
         ('reg_alpha', [0.0, 1e-4, 1e-3, 1e-2, 0.1, 1.0]),
         ('reg_lambda', [0.0, 1e-4, 1e-3, 1e-2, 0.1, 1.0]),
         ('learning_rate', [0.001, 0.01, 0.05, 0.1, 0.2]),
         ('n_estimators', [10, 50, 100, 200, 500]),
-        ]),
+    ]),
     'lr': OrderedDict([
         ('class_weight', [None, 'balanced']),
         ('penalty', ['l1', 'l2']),
         ('C', [0.0001, 0.001, 0.01, 0.1, 1, 10]),
         ('tol', [1e-5, 1e-4, 1e-3]),
         #('max_iter', [200, 1000]),
-        ]),
+    ]),
     'svm_lin': OrderedDict([
         ('class_weight', [None, 'balanced']),
         ('penalty', ['l1', 'l2']),
@@ -160,7 +167,7 @@ PARAM_GRID = {
         ('tol', [1e-5, 1e-4, 1e-3]),
         # Unsupported set of arguments: The combination of penalty='l1' and loss='hinge' is not supported
         # 'loss': ['hinge', 'squared_hinge']),
-        ]),
+    ]),
     'svm_poly': OrderedDict([
         # note: with sigmoid kernel and coef0=10 (and greater), decision function values seemed to
         # have offset between cross folds - weird!
@@ -172,7 +179,7 @@ PARAM_GRID = {
         ('gamma', ['auto', 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10]),
         ('shrinking', [False, True]),
         ('tol', [1e-4, 1e-3, 1e-2]),
-        ]),
+    ]),
     'svm_rbf': OrderedDict([
         ('kernel', ['rbf']),
         ('class_weight', [None, 'balanced']),
@@ -180,7 +187,7 @@ PARAM_GRID = {
         ('gamma', ['auto', 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10]),
         ('shrinking', [False, True]),
         ('tol', [1e-4, 1e-3, 1e-2]),
-        ]),
+    ]),
     'svm_sig': OrderedDict([
         # note: with sigmoid kernel and coef0=10 (and greater), decision function values seemed to
         # have offset between cross folds - weird!
@@ -191,16 +198,16 @@ PARAM_GRID = {
         ('gamma', ['auto', 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10]),
         ('shrinking', [False, True]),
         ('tol', [1e-4, 1e-3, 1e-2]),
-        ]),
+    ]),
     'mlp': OrderedDict([
         ('alpha', [0.0001, 0.001, 0.01, 0.1, 1.0, 5.0]),
         ('learning_rate_init', [0.001, 0.01, 0.1]),
         ('learning_rate', ['constant', 'invscaling', 'adaptive']),
         ('activation', ['logistic', 'tanh', 'relu']),
-        ('depth', [1,2,3]),
+        ('depth', [1, 2, 3]),
         ('width', ['sqrt', 'log2', 'full']),
         ('tol', [1e-5, 1e-4, 1e-3]),
-        ]),
+    ]),
 }
 
 
@@ -212,7 +219,7 @@ def get_param_combinations(d):
     return sz
 
 
-def cmp_mixed(x,y):
+def cmp_mixed(x, y):
     """compare function to sort mixed numeric/string values"""
     try:
         xf = float(x)
@@ -233,7 +240,7 @@ class PlotCycler(object):
 
     def __init__(self, what='color'):
         if what == 'color':
-            self.cycle = ['r', 'g', 'b',  'm', 'c', 'y', 'k', 'w']
+            self.cycle = ['r', 'g', 'b', 'm', 'c', 'y', 'k', 'w']
         else:
             self.cycle = ['-', '--', '-.', ':', ':']
 
@@ -254,19 +261,20 @@ def core_basename(x):
     return ext[0]
 
 
-def df_to_csv_append(df, cvs_file_path, sep="\t", header=True, overwrite=False, **kwargs):
+def df_to_csv_append(df, csv_file_path, sep="\t", header=True, overwrite=False, **kwargs):
     """append pandas DataFrame to file"""
-    if overwrite or not os.path.isfile(cvs_file_path):
-        df.to_csv(cvs_file_path, index=False, sep=sep, header=True, **kwargs)
+    if overwrite or not os.path.isfile(csv_file_path):
+        df.to_csv(csv_file_path, index=False, sep=sep, header=True, **kwargs)
         return
-    df_file = pd.read_csv(cvs_file_path, nrows=1, sep=sep)
+    df_file = pd.read_csv(csv_file_path, nrows=1, sep=sep)
 
     if len(df.columns) != len(df_file.columns):
-        raise ValueError("Columns do not match!! Dataframe has " + str(len(df.columns)) + " columns. CSV file " + csv_file_path + " has " + str(len(df_file.columns)) + " columns.")
+        raise ValueError("Columns do not match!! Dataframe has " + str(len(df.columns)) +
+                         " columns. CSV file " + csv_file_path + " has " + str(len(df_file.columns)) + " columns.")
     elif not (df.columns == df_file.columns).all():
         raise Exception("Columns and column order of dataframe and csv file do not match!!")
     else:
-        df.to_csv(cvs_file_path, mode='a', index=False, sep=sep, header=False, **kwargs)
+        df.to_csv(csv_file_path, mode='a', index=False, sep=sep, header=False, **kwargs)
 
 
 class Fingerprinter(BaseEstimator, TransformerMixin):
@@ -285,22 +293,19 @@ class Fingerprinter(BaseEstimator, TransformerMixin):
             self.fp_size = 166
         self.features = None
 
-
     def get_feature_names(self):
         if self.features is None:
             raise ValueError('Fingerprinter: need to call fit() before getting feature names')
         return self.features
 
-
     # fit() doesn't do anything, this is a transformer class
-    def fit(self, X, y = None):
+    def fit(self, X, y=None):
         return self
-
 
     def transform(self, X):
         X = np.array(X)
         logging.debug('generating %d %s fingerprints' % (len(X), self.fp_type))
-        #if logging.getLogger().getEffectiveLevel() <= 10:
+        # if logging.getLogger().getEffectiveLevel() <= 10:
         #    for line in traceback.format_stack():
         #        logging.debug(line.strip())
         if self.fp_type == 'prop':
@@ -333,7 +338,7 @@ class Fingerprinter(BaseEstimator, TransformerMixin):
 def clone_pipeline(pipe_in):
     """clone an sklearn Pipeline object"""
     return Pipeline(memory=pipe_in.memory,
-                    steps = [(name, clone(est)) for name, est in pipe_in.steps])
+                    steps=[(name, clone(est)) for name, est in pipe_in.steps])
 
 
 def create_fp(fp_type, fp_size, mem):
@@ -374,10 +379,10 @@ def get_feature_names(pipe, pos=-1):
         return pipe.get_feature_names()
     el = pipe.steps[pos][1]
     if isinstance(el, preprocessing.StandardScaler):
-        return get_feature_names(pipe, pos-1)
+        return get_feature_names(pipe, pos - 1)
     if isinstance(el, FeatureUnion):
         features = []
-        for (name,est,weight) in el._iter():
+        for (name, est, weight) in el._iter():
             features.extend(get_feature_names(est))
         return features
     return get_feature_names(el)
@@ -400,7 +405,7 @@ def prepare_pipeline_for_scoring(pipe):
             prepare_pipeline_for_scoring(s[1])
 
     if isinstance(pipe, FeatureUnion):
-        for (name,est,weight) in pipe._iter():
+        for (name, est, weight) in pipe._iter():
             prepare_pipeline_for_scoring(est)
 
 
@@ -413,14 +418,12 @@ class LabelStratificationEncoder(BaseEstimator, TransformerMixin):
     def __init__(self):
         self.le = None
 
-
     def fit(self, strat=None):
         if strat is not None and len(strat) > 1:
             self.le = preprocessing.LabelEncoder()
             self.le.fit(strat)
             logging.debug('LabelStratificationEncoder classes: %s, %s' % (self.le.classes_, np.bincount(strat)))
         return self
-
 
     def transform(self, y, strat=None):
         if self.le is None or strat is None:
@@ -435,11 +438,9 @@ class LabelStratificationEncoder(BaseEstimator, TransformerMixin):
 
         return res
 
-
     def fit_transform(self, y, strat):
         self.fit(strat)
         return self.transform(y, strat)
-
 
     def inverse_transform(self, y):
         y_trans = np.mod(y, 2)
@@ -464,7 +465,6 @@ class ThresholdTuner(BaseEstimator, ClassifierMixin):
         self.stratifier = stratifier
         if stratifier is not None and not isinstance(stratifier, LabelStratificationEncoder):
             raise ValueError('stratifier must be an instance of class LabelStratificationEncoder')
-
 
     def fit(self, X, y, sample_weight=None, test_filter=None):
         """
@@ -543,10 +543,8 @@ class ThresholdTuner(BaseEstimator, ClassifierMixin):
 
         return self
 
-
     def predict_proba(self, X):
         return score_classifier(self.classifier, X)
-
 
     def predict(self, X):
         """compute the score of the embedded classifier, then apply tuned threshold"""
@@ -561,7 +559,7 @@ class MLPClassifierWrapper(MLPClassifier):
     """
 
     def __init__(self, width='sqrt', depth=1,
-                 activation="tanh", # changed!
+                 activation="tanh",  # changed!
                  solver='adam', alpha=0.1,
                  batch_size='auto', learning_rate="constant",
                  learning_rate_init=0.01, power_t=0.5, max_iter=10000,
@@ -583,11 +581,10 @@ class MLPClassifierWrapper(MLPClassifier):
                      validation_fraction=validation_fraction, beta_1=beta_1, beta_2=beta_2,
                      epsilon=epsilon)
 
-
     def fit(self, X, y, sample_weight=None):
 
         if self.width not in ['sqrt', 'log2', 'full']:
-            raise ValueError('invalid layer width: %s' % width)
+            raise ValueError('invalid layer width: %s' % self.width)
 
         n = X.shape[1]
         if self.width == 'sqrt':
@@ -595,7 +592,7 @@ class MLPClassifierWrapper(MLPClassifier):
         else:
             n = int(math.ceil(math.log2(n)))
         self.hidden_layer_sizes = (n) * self.depth
-        super(MLPClassifier, self).fit(X,y)
+        super(MLPClassifier, self).fit(X, y)
 
 
 # properties of sklearn classifiers
@@ -612,7 +609,6 @@ def classifier_allows_weights(method):
 
 
 def get_classifier(method, hyper_param_file=None, binary_features=True, **kwargs):
-
     """
     instantiate an sklearn classifier according to string.
     read hyper parameters from hyper_parm_file, if given.
@@ -622,7 +618,7 @@ def get_classifier(method, hyper_param_file=None, binary_features=True, **kwargs
 
     if ((not classifier_has_random_state(method)) or
         # workaround: xgb does not allow seed=None
-        (method == 'xgb' and 'random_state' in kwargs and kwargs['random_state'] is None)):
+            (method == 'xgb' and 'random_state' in kwargs and kwargs['random_state'] is None)):
 
         try:
             kwargs.pop('random_state')
@@ -686,7 +682,7 @@ def get_classifier(method, hyper_param_file=None, binary_features=True, **kwargs
             hyper_params.pop('comment')
         logging.info(hyper_params)
         # remove possible pipeline prefix
-        hyper_params = dict([(k.split('__')[-1],v) for k,v in hyper_params.items()])
+        hyper_params = dict([(k.split('__')[-1], v) for k, v in hyper_params.items()])
         classifier.set_params(**hyper_params)
 
     return classifier
@@ -776,7 +772,7 @@ def plot_folds(label_score_weight, dir_out='images', tag='test', plot_type='pr',
         xys = [xy for xy in sorted(zip(x, y))]
         xys_new = []
         for i in range(len(xys) - 1):
-            if xys[i][0] != xys[i+1][0]:
+            if xys[i][0] != xys[i + 1][0]:
                 xys_new.append(xys[i])
         xys_new.append(xys[-1])
         xys = xys_new
@@ -913,7 +909,7 @@ def plot_optim_results(df, random_grid, method, dir='.', tag='', include_train=F
         cross_plot = ['clf__C', 'clf__gamma']
     if cross_plot is not None:
         cross_name = cross_plot[0] + '_' + cross_plot[1]
-        df[pref + cross_name] = ['(%s,%s)' % (l,n) for l,n in zip(df[pref + cross_plot[0]], df[pref + cross_plot[1]])]
+        df[pref + cross_name] = ['(%s,%s)' % (l, n) for l, n in zip(df[pref + cross_plot[0]], df[pref + cross_plot[1]])]
         plot_names.append(cross_name)
 
     for c in ['mean_train_score', 'mean_test_score']:
@@ -935,7 +931,7 @@ def plot_optim_results(df, random_grid, method, dir='.', tag='', include_train=F
             u = np.unique(list(df[pref + sort_col]))
             u = sorted(u, key=cmp_to_key(cmp_mixed))
             df['order'] = [u.index(x) for x in df[pref + sort_col]]
-            df.sort_values('order', inplace=True, kind='mergesort') # note: must be stable sort
+            df.sort_values('order', inplace=True, kind='mergesort')  # note: must be stable sort
 
         u, i, x = np.unique(df[c], return_index=True, return_inverse=True)
         if include_train:
@@ -994,7 +990,6 @@ def _fit_and_score(pipe, X, y, y_enc, sample_weight, test_filter, train_idx, tes
 
 
 def optimize_subset_params(estimator, X, y, fit_params, scoring, param_grid, param_subset, cv, n_iter, random_state, verbose, n_jobs):
-
     """single pass of hyper-parameter optimization.
     if n_iter is less than 70% of possible parameter space, RandomizedSearchCV is used, else GridSearchCV.
     all params not listed in param_subset are kept fixed.
@@ -1004,7 +999,7 @@ def optimize_subset_params(estimator, X, y, fit_params, scoring, param_grid, par
     if param_subset is None:
         subset_grid = param_grid
     else:
-        current_params = dict([('clf__' + k, v) for k,v in estimator.named_steps['clf'].get_params().items()])
+        current_params = dict([('clf__' + k, v) for k, v in estimator.named_steps['clf'].get_params().items()])
 
         subset_grid = {}
         for k in param_grid:
@@ -1023,10 +1018,11 @@ def optimize_subset_params(estimator, X, y, fit_params, scoring, param_grid, par
 
     if n_iter >= 0.7 * get_param_combinations(subset_grid):
         # if n_iter is greater than parameter space, RandomizedSearchCV throws an error - just switch to GridSearchCV
-        search = GridSearchCV(estimator=estimator, param_grid=subset_grid, scoring=scoring, fit_params=fit_params, cv=cv, verbose=verbose, n_jobs=n_jobs, pre_dispatch='2*n_jobs', return_train_score=True, refit=True)
+        search = GridSearchCV(estimator=estimator, param_grid=subset_grid, scoring=scoring, fit_params=fit_params,
+                              cv=cv, verbose=verbose, n_jobs=n_jobs, pre_dispatch='2*n_jobs', return_train_score=True, refit=True)
     else:
-        search = RandomizedSearchCV(estimator=estimator, param_distributions=subset_grid, scoring=scoring, fit_params=fit_params, n_iter=n_iter, cv=cv, verbose=verbose, random_state=random_state, n_jobs=n_jobs, pre_dispatch='2*n_jobs', return_train_score=True, refit=True)
-
+        search = RandomizedSearchCV(estimator=estimator, param_distributions=subset_grid, scoring=scoring, fit_params=fit_params, n_iter=n_iter,
+                                    cv=cv, verbose=verbose, random_state=random_state, n_jobs=n_jobs, pre_dispatch='2*n_jobs', return_train_score=True, refit=True)
 
     # most efficient to add search as a step in the pipeline! See https://stackoverflow.com/questions/43366561/use-sklearns-gridsearchcv-with-a-pipeline-preprocessing-just-once
     # however, to include pipeline parameters other than in the classifier, pipe would have to be an argument.
@@ -1044,13 +1040,12 @@ def optimize_subset_params(estimator, X, y, fit_params, scoring, param_grid, par
     res['mean_test_score'] = res['mean_test_score'].astype(float)
     res.sort_values('mean_test_score', ascending=False, inplace=True)
 
-    return search.best_params_, search.best_score_, res,  type(search).__name__
+    return search.best_params_, search.best_score_, res, type(search).__name__
 
 
 # note: despite a lot of trying, I could not fit stratification by target *and* weight into this framework.
 
-def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, scoring='roc_auc', fine_tune=False, n_iter=100, cv=3, seed=None, n_jobs=-1, dir_out='.',  experiment='exp', overwrite=0, svm_cache_size=5000, verbose=1):
-
+def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, scoring='roc_auc', fine_tune=False, n_iter=100, cv=3, seed=None, n_jobs=-1, dir_out='.', experiment='exp', overwrite=0, svm_cache_size=5000, verbose=1):
     """
     run hyperparameter optimization.
     first stage is randomized or grid search; second stage is local parameter-wise optimization until convergence (with fine_tune=True).
@@ -1065,19 +1060,17 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
     now = datetime.datetime.now()
     comment = '%s, created %s' % (tag, now.strftime('%c'))
 
-
     if method in PARAM_GRID:
         random_grid = PARAM_GRID[method]
         random_grid = dict([('clf__' + k, v) for k, v in random_grid.items()])
     else:
         raise ValueError('hyperparameter optimization not supported for %s' % method)
 
-
     #hp_file = os.path.join(dir_out, 'best_%s_%s.json' % (experiment, scoring))
     hp_file = os.path.join(dir_out, 'hyper_params_%s.json' % method)
     hp_file_b = 'hyper_params_%s.json' % method
 
-    if not  os.path.exists(hp_file):
+    if not os.path.exists(hp_file):
         # backup to current directory
         hp_file_r = hp_file_b
     else:
@@ -1085,7 +1078,7 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
 
     hp_file_v2 = os.path.join(dir_out, 'hyper_params_v2_%s.json' % method)
     hp_file_v2_b = 'hyper_params_v2_%s.json' % method
-    if not  os.path.exists(hp_file_v2):
+    if not os.path.exists(hp_file_v2):
         hp_file_v2_r = hp_file_v2_b
     else:
         hp_file_v2_r = hp_file_v2
@@ -1113,9 +1106,11 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
         elif scoring == 'roc_auc':
             scorer = make_scorer(wrap_score, func=roc_auc_score, needs_threshold=True, sample_weight=sample_weight)
         elif scoring == 'average_precision':
-            scorer = make_scorer(wrap_score, func=average_precision_score, needs_threshold=True, sample_weight=sample_weight)
+            scorer = make_scorer(wrap_score, func=average_precision_score,
+                                 needs_threshold=True, sample_weight=sample_weight)
         elif scoring == 'log_loss':
-            scorer = make_scorer(wrap_score, func=log_loss, greater_is_better=False, needs_proba=True, sample_weight=sample_weight)
+            scorer = make_scorer(wrap_score, func=log_loss, greater_is_better=False,
+                                 needs_proba=True, sample_weight=sample_weight)
         else:
             raise ValueError('weighted hyperparameter optimization not implemented for %s' % scoring)
 
@@ -1129,16 +1124,18 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
 
     cv_local = 5
 
-    if  fine_tune and os.path.exists(hp_file):
+    if fine_tune and os.path.exists(hp_file):
         # read first-stage model from file
-        classifier = get_classifier(method, hyper_param_file=hp_file_r, binary_features=binary_features, random_state=seed, cache_size=svm_cache_size)
+        classifier = get_classifier(method, hyper_param_file=hp_file_r,
+                                    binary_features=binary_features, random_state=seed, cache_size=svm_cache_size)
         pipe.steps.append(('clf', classifier))
         best_params = json.load(open(hp_file_r, 'r'))
         if 'comment' in best_params:
             best_params.pop('comment')
         best_score = -1e10
     else:
-        classifier = get_classifier(method, binary_features=binary_features, random_state=seed, cache_size=svm_cache_size)
+        classifier = get_classifier(method, binary_features=binary_features,
+                                    random_state=seed, cache_size=svm_cache_size)
         pipe.steps.append(('clf', classifier))
 
         logging.info('starting hyperparameter optimization for %s' % tag)
@@ -1152,17 +1149,21 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
 
             # 1. main optimization
             subset = [k for k in random_grid if k not in ('clf__n_estimators', 'clf__learning_rate')]
-            best_params, best_score, res, search_type = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight':sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=subset, cv=cv, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
-            logging.info('best (non-lr) parameters after first stage of hyperparameter optimization (%s) for %s: (score %.3f)' % (search_type, tag, best_score))
+            best_params, best_score, res, search_type = optimize_subset_params(pipe, X, y, fit_params={
+                                                                               'clf__sample_weight': sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=subset, cv=cv, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
+            logging.info('best (non-lr) parameters after first stage of hyperparameter optimization (%s) for %s: (score %.3f)' %
+                         (search_type, tag, best_score))
             logging.info(best_params)
 
             # 2. optimize lr and #trees
             logging.info('optimizing learn rate and number of trees for %s' % tag)
-            best_params, best_score, res_step, _ = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight':sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=('clf__n_estimators', 'clf__learning_rate'), cv=cv_local, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
+            best_params, best_score, res_step, _ = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight': sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=(
+                'clf__n_estimators', 'clf__learning_rate'), cv=cv_local, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
             res = res.append(res_step, ignore_index=True, sort=True)
             res['mean_test_score'] = res['mean_test_score'].astype(float)
             res.sort_values('mean_test_score', ascending=False, inplace=True)
-            logging.info('best number of trees for tuning %s at lr=%.3f: %d, score = %.3f' % (tag, best_params['clf__learning_rate'], best_params['clf__n_estimators'], best_score))
+            logging.info('best number of trees for tuning %s at lr=%.3f: %d, score = %.3f' %
+                         (tag, best_params['clf__learning_rate'], best_params['clf__n_estimators'], best_score))
 
         elif method == 'rf':
             # similarly as for gradient boosting, number of estimators might overpower all other signals - do it in two steps
@@ -1170,25 +1171,30 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
 
             # 1. optimize everything except n_estimators
             subset = [k for k in random_grid if k not in ('clf__n_estimators')]
-            best_params, best_score, res, search_type = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight':sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=subset, cv=cv, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
+            best_params, best_score, res, search_type = optimize_subset_params(pipe, X, y, fit_params={
+                                                                               'clf__sample_weight': sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=subset, cv=cv, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
 
-            logging.info('best parameters after first stage of hyperparameter optimization (%s) for %s: (score %.3f)' % (search_type, tag, best_score))
+            logging.info('best parameters after first stage of hyperparameter optimization (%s) for %s: (score %.3f)' % (
+                search_type, tag, best_score))
             logging.info(best_params)
 
             # 2. optimize #trees
             logging.info('optimizing number of trees for %s' % tag)
-            best_params, best_score, res_step, _ = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight':sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=('clf__n_estimators',), cv=cv_local, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
+            best_params, best_score, res_step, _ = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight': sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=(
+                'clf__n_estimators',), cv=cv_local, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
             res = res.append(res_step, ignore_index=True, sort=True)
             res['mean_test_score'] = res['mean_test_score'].astype(float)
             res.sort_values('mean_test_score', ascending=False, inplace=True)
-            logging.info('best number of trees for tuning %s: %d, score = %.3f' % (tag, best_params['clf__n_estimators'], best_score))
+            logging.info('best number of trees for tuning %s: %d, score = %.3f' %
+                         (tag, best_params['clf__n_estimators'], best_score))
 
         else:
             # method other than rf, gbm, xgb
-            best_params, best_score, res, search_type = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight':sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=None, cv=cv, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
-            logging.info('best parameters after first stage of hyperparameter optimization (%s) for %s: (score %.3f)' % (search_type, tag, best_score))
+            best_params, best_score, res, search_type = optimize_subset_params(pipe, X, y, fit_params={
+                                                                               'clf__sample_weight': sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=None, cv=cv, n_iter=n_iter, random_state=seed, verbose=verbose, n_jobs=n_jobs)
+            logging.info('best parameters after first stage of hyperparameter optimization (%s) for %s: (score %.3f)' % (
+                search_type, tag, best_score))
             logging.info(best_params)
-
 
         best_params['comment'] = comment
         json.dump(best_params, open(hp_file, 'w'))
@@ -1203,11 +1209,10 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
 
         plot_optim_results(res, random_grid, method, dir_out, tag)
 
-
     if fine_tune:
 
         # parameter grid might have changed from previous optimization run!
-        current_params = dict([('clf__' + k, v) for k,v in pipe.named_steps['clf'].get_params().items()])
+        current_params = dict([('clf__' + k, v) for k, v in pipe.named_steps['clf'].get_params().items()])
 
         for k in random_grid:
             if k not in best_params:
@@ -1229,23 +1234,28 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
                         continue
                     # fix everything except this one parameter
                     # this makes it easier to collect and align results afterwards
-                    best_params_step, best_score_step, res_step, search_type = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight':sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=[param], cv=cv_local, n_iter=1e6, random_state=None, verbose=verbose, n_jobs=min(n_jobs, cv_local*len(random_grid[param])))
-                    logging.debug('optimizing parameter %s, old (%s, %.5g) -> new (%s, %.5g)' %(param, best_params[param], best_score, best_params_step[param], best_score_step))
+                    best_params_step, best_score_step, res_step, search_type = optimize_subset_params(pipe, X, y, fit_params={'clf__sample_weight': sample_weight}, scoring=scorer, param_grid=random_grid, param_subset=[
+                                                                                                      param], cv=cv_local, n_iter=1e6, random_state=None, verbose=verbose, n_jobs=min(n_jobs, cv_local * len(random_grid[param])))
+                    logging.debug('optimizing parameter %s, old (%s, %.5g) -> new (%s, %.5g)' %
+                                  (param, best_params[param], best_score, best_params_step[param], best_score_step))
                     logging.debug(pipe.named_steps['clf'].get_params())
                     if best_params_step[param] == best_params[param]:
                         if best_score_step < best_score:
-                            logging.warning('score decreased with same parameter value! parameter %s, old (%s, %.5g) -> new (%s, %.5g)' %(param, best_params[param], best_score, best_params_step[param], best_score_step))
+                            logging.warning('score decreased with same parameter value! parameter %s, old (%s, %.5g) -> new (%s, %.5g)' %
+                                            (param, best_params[param], best_score, best_params_step[param], best_score_step))
                         if first:
                             best_score = best_score_step
                             first = False
                     else:
                         # best param value changed
                         if best_score_step <= best_score:
-                            logging.warning('score decreased with different parameter value! parameter %s, old (%s, %.5g) -> new (%s, %.5g)' %(param, best_params[param], best_score, best_params_step[param], best_score_step))
+                            logging.warning('score decreased with different parameter value! parameter %s, old (%s, %.5g) -> new (%s, %.5g)' % (
+                                param, best_params[param], best_score, best_params_step[param], best_score_step))
                         else:
                             changed = True
                             first = False
-                            logging.info('changed parameter %s, old (%s, %.5g) -> new (%s, %.5g)' %(param,  best_params[param], best_score, best_params_step[param], best_score_step))
+                            logging.info('changed parameter %s, old (%s, %.5g) -> new (%s, %.5g)' %
+                                         (param, best_params[param], best_score, best_params_step[param], best_score_step))
                             best_score = best_score_step
                             best_params = best_params_step
                             pipe.set_params(**best_params)
@@ -1254,7 +1264,6 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
                         res = res_step
                     else:
                         res = res.append(res_step, ignore_index=True, sort=True)
-
 
         best_params['comment'] = comment
         json.dump(best_params, open(hp_file_v2, 'w'))
@@ -1265,7 +1274,8 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
             json.dump(best_params, open(hp_file_v2_b, 'w'))
         best_params.pop('comment')
 
-        logging.info('best parameters after 2nd stage of hyperparameter optimization for %s (score %.3f):' % (tag, best_score))
+        logging.info('best parameters after 2nd stage of hyperparameter optimization for %s (score %.3f):' %
+                     (tag, best_score))
         logging.info(best_params)
 
         if res is not None:
@@ -1285,38 +1295,53 @@ def hyper_optim(pipe, method, X, y, sample_weight=None, binary_features=True, sc
 
 def main():
     import configargparse
-    parser = configargparse.ArgParser(description='train and evaluate a molecular classifier according to several choices of fingerprint and learning methods.', formatter_class=configargparse.ArgumentDefaultsHelpFormatter, add_config_file_help=False)
+    parser = configargparse.ArgParser(description='train and evaluate a molecular classifier according to several choices of fingerprint and learning methods.',
+                                      formatter_class=configargparse.ArgumentDefaultsHelpFormatter, add_config_file_help=False)
     parser.add('--config', is_config_file=True, help='config file path')
-    parser.add('--outDir', metavar='DIR', type=str, default='experiments', help='output directory for training results (model file, cross validation and optimization metrics, plots, variable importance)')
-    parser.add('--logDir', metavar='DIR',type=str, default='logs', help='output directory for log files')
+    parser.add('--outDir', metavar='DIR', type=str, default='experiments',
+               help='output directory for training results (model file, cross validation and optimization metrics, plots, variable importance)')
+    parser.add('--logDir', metavar='DIR', type=str, default='logs', help='output directory for log files')
     parser.add('--cacheDir', metavar='DIR', type=str, default='cache', help='pipeline cache directory')
-    parser.add('--data', metavar='FILE', type=str, required=True, help='training data, must contain a smiles and a label column')
+    parser.add('--data', metavar='FILE', type=str, required=True,
+               help='training data, must contain a smiles and a label column')
     parser.add('--smilesCol', type=str, default='smiles', help='name of column containing the input smiles')
     parser.add('--targetCol', type=str, required=True, help='name of column containing the targets')
-    parser.add('--fpType', type=csv_list, default='ecfp4', help='type of fingerprint %s; prop = rdkit molecular descriptors. Multiple elements mean their UNION is used, not sequentially.' % Fingerprinter.FP_TYPES)
+    parser.add('--fpType', type=csv_list, default='ecfp4',
+               help='type of fingerprint %s; prop = rdkit molecular descriptors. Multiple elements mean their UNION is used, not sequentially.' % Fingerprinter.FP_TYPES)
     parser.add('--fpSize', metavar='N', type=int, default=2048, help='fingerprint size')
-    parser.add('--methods', type=csv_list, default='rf,gbm,lr,svm_lin,svm_poly,svm_rbf,svm_sig,nb,qda,knn1,knn10,ada,gp,dummy,xgb', help='ml methods. Note: ada and gp crash on larger data sets. Add suffix _optim to do hyperparameter optimization; _optim2 with additional stage of local optimization (changing one parameter at a time).')
+    parser.add('--methods', type=csv_list, default='rf,gbm,lr,svm_lin,svm_poly,svm_rbf,svm_sig,nb,qda,knn1,knn10,ada,gp,dummy,xgb',
+               help='ml methods. Note: ada and gp crash on larger data sets. Add suffix _optim to do hyperparameter optimization; _optim2 with additional stage of local optimization (changing one parameter at a time).')
     parser.add('--maxFPR', type=float, default=0.2, help='false positive rate that is acceptable for threshold tuning')
-    parser.add('--weightCat', type=str, default='', help='integer column for categories of sample weights (see catToSampleWeight). Used for cross validation stratification.')
-    parser.add('--catToSampleWeight', type=csv_list, default='', help='mapping of categories to sample weights (cat1=w1,cat2=w2,..)')
+    parser.add('--weightCat', type=str, default='',
+               help='integer column for categories of sample weights (see catToSampleWeight). Used for cross validation stratification.')
+    parser.add('--catToSampleWeight', type=csv_list, default='',
+               help='mapping of categories to sample weights (cat1=w1,cat2=w2,..)')
     parser.add('--testFilterCat', type=int, default=-1, help='use only this category for test set evaluation')
     parser.add('--cv', metavar='N', type=int, default=5, help='number of cross validation folds')
     parser.add('--cvJobs', metavar='N', type=int, default=-1, help='number of cpus to use for cross validation')
-    parser.add('--validFrac', metavar='F', type=float, default=0.2, help='Fraction of training data to hold out for threshold tuning')
+    parser.add('--validFrac', metavar='F', type=float, default=0.2,
+               help='Fraction of training data to hold out for threshold tuning')
     parser.add('--seed', metavar='N', type=int, default=42, help='random seed')
-    parser.add('--resultsOverwrite', metavar='N', type=int, choices = [0, 1], default=0, help='Overwrite previous results')
-    parser.add('--optimScoring', type=str, default='average_precision', choices=['average_precision', 'roc_auc', 'f1', 'neg_log_loss', 'accuracy'], help='metrics scoring function for hyperparameter optimization')
-    parser.add('--optimIter', metavar='N', type=int, default=100, help='number of iterations for hyperparameter optimization')
+    parser.add('--resultsOverwrite', metavar='N', type=int,
+               choices=[0, 1], default=0, help='Overwrite previous results')
+    parser.add('--optimScoring', type=str, default='average_precision', choices=[
+               'average_precision', 'roc_auc', 'f1', 'neg_log_loss', 'accuracy'], help='metrics scoring function for hyperparameter optimization')
+    parser.add('--optimIter', metavar='N', type=int, default=100,
+               help='number of iterations for hyperparameter optimization')
     parser.add('--optimCV', metavar='N', type=int, default=3, help='number of CV folds for hyperparameter optimization')
-    parser.add('--optimOverwrite', metavar='N', type=int, choices = [0, 1], default=1, help='If zero and previous optimization results exists, use it')
-    parser.add('--optimJobs', metavar='N', type=int, default=-1, help='number of cpus to use for hyperparameter optimization')
+    parser.add('--optimOverwrite', metavar='N', type=int,
+               choices=[0, 1], default=1, help='If zero and previous optimization results exists, use it')
+    parser.add('--optimJobs', metavar='N', type=int, default=-1,
+               help='number of cpus to use for hyperparameter optimization')
     parser.add('--logToFile', metavar='N', type=int, choices=[0, 1], default=1, help='log to file')
     parser.add('--cachePipeline', metavar='N', type=int, choices=[0, 1], default=1, help='use cached pipelines')
-    parser.add('--refit', metavar='N', type=int, choices=[0, 1], default=1, help='refit final model on all data, save to .pkl file, and calculate variable importance')
+    parser.add('--refit', metavar='N', type=int,
+               choices=[0, 1], default=1, help='refit final model on all data, save to .pkl file, and calculate variable importance')
     parser.add('--saveComment', type=str, default='', help='comment to store in refit model')
-    parser.add('--svmCacheMemFrac', metavar='F', type=float, default=0.5, help='maximum percentage of total memory to use for svm training. Crucial for svm training speed.')
-    parser.add('--verbose', metavar='N', type=int, choices=[0, 1, 2, 3], default=1, help='verbose logging [0 - no logging; 1 - info, no libraries; 2 - including libraries; 3 - debug')
-
+    parser.add('--svmCacheMemFrac', metavar='F', type=float, default=0.5,
+               help='maximum percentage of total memory to use for svm training. Crucial for svm training speed.')
+    parser.add('--verbose', metavar='N', type=int, choices=[
+               0, 1, 2, 3], default=1, help='verbose logging [0 - no logging; 1 - info, no libraries; 2 - including libraries; 3 - debug')
 
     args = parser.parse_args()
 
@@ -1331,7 +1356,6 @@ def main():
         mkdir_p('logs')
         log_file = 'logs/log_%s_%s.txt' % (core_basename(args.data), args.fpType)
         sys.stderr.write('logfile: %s\n' % log_file)
-
 
     # note: detect logging level rather than having a verbose flag!
     # verbose flag will lead underutilization of cached pipelines
@@ -1353,7 +1377,6 @@ def main():
     verbose_mem = 11 if verbose_sklearn == 2 else verbose_sklearn
     verbose_par = 50 if args.verbose >= 2 else 0
 
-
     # compute maximum cache size for svm training
 
     any_svm_optim = False
@@ -1373,7 +1396,7 @@ def main():
     n_parallel = min(n_parallel, procs)
     svm_cache_size = int(args.svmCacheMemFrac * mem / n_parallel)
 
-    logging.debug('total mem %s procs %s cache mem %s' %(mem, procs, svm_cache_size))
+    logging.debug('total mem %s procs %s cache mem %s' % (mem, procs, svm_cache_size))
 
     # read the data
 
@@ -1385,18 +1408,17 @@ def main():
     dist /= np.sum(dist)
     logging.debug('label distribution: %s', dist)
 
-
     # weight management
     if (args.weightCat is not None) and (len(args.weightCat) > 0):
         if args.weightCat not in df.columns:
             raise ValueError('No such column: %s' % args.weightCat)
-        weight_cat =  df[args.weightCat]
+        weight_cat = df[args.weightCat]
         us = np.unique(weight_cat)
         if len(args.catToSampleWeight) < len(us):
             raise ValueError('not enough values specified in catToSampleWeight, needed: %s' % us)
         d = {}
         for x in args.catToSampleWeight:
-            k,v = x.split('=')
+            k, v = x.split('=')
             d[int(k)] = float(v)
         args.catToSampleWeight = d
         for u in us:
@@ -1431,7 +1453,6 @@ def main():
 
     pipe, binary_features = create_fp_pipe(args.fpType, args.fpSize, mem)
 
-
     for method in args.methods:
 
         hyper_opt = False
@@ -1457,20 +1478,22 @@ def main():
             hyper_param_file = hyper_optim(pipe, method, X, y, sample_weight=sample_weight_m, binary_features=binary_features,
                                            scoring=args.optimScoring, fine_tune=fine_tune, n_iter=args.optimIter,
                                            cv=args.optimCV, seed=args.seed, n_jobs=args.optimJobs, dir_out=dir_out, experiment=experiment,
-                                           overwrite=(args.optimOverwrite>0), svm_cache_size=svm_cache_size, verbose=args.verbose)
+                                           overwrite=(args.optimOverwrite > 0), svm_cache_size=svm_cache_size, verbose=args.verbose)
 
         cv = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=args.seed)
 
-        classifier = get_classifier(method, binary_features=binary_features, hyper_param_file=hyper_param_file, random_state=args.seed, cache_size=svm_cache_size)
-        tuner = ThresholdTuner(classifier, 0.5, args.validFrac, max_false_positive_rate=args.maxFPR, random_state=args.seed, stratifier=le_strat)
+        classifier = get_classifier(method, binary_features=binary_features,
+                                    hyper_param_file=hyper_param_file, random_state=args.seed, cache_size=svm_cache_size)
+        tuner = ThresholdTuner(classifier, 0.5, args.validFrac, max_false_positive_rate=args.maxFPR,
+                               random_state=args.seed, stratifier=le_strat)
         pipe.steps.append(('clf', tuner))
 
         logging.info('starting cross validation for %s' % experiment)
         logging.debug(pipe.steps)
         outs = Parallel(
             n_jobs=args.cvJobs, verbose=verbose_par,
-            )(delayed(_fit_and_score)(clone(pipe), X, y, y_enc, sample_weight_m, test_filter, train_idx, test_idx)
-              for (train_idx, test_idx) in cv.split(X, y_enc))
+        )(delayed(_fit_and_score)(clone(pipe), X, y, y_enc, sample_weight_m, test_filter, train_idx, test_idx)
+          for (train_idx, test_idx) in cv.split(X, y_enc))
 
         # aggregate results from all cv folds
 
@@ -1502,7 +1525,7 @@ def main():
             rec['tpr_all'].append(t)
 
         for name in ['pr', 'auc', 'pearson', 'fpr', 'tpr', 'fpr_all', 'tpr_all', 'thresh']:
-            results.extend([np.mean(rec[name]),  np.std(rec[name])])
+            results.extend([np.mean(rec[name]), np.std(rec[name])])
             logging.info('%s\t%.3g' % (name, np.mean(rec[name])))
 
         results.append(classifier.get_params())
@@ -1523,7 +1546,7 @@ def main():
             pipe.fit(X, y, clf__sample_weight=sample_weight_m, clf__test_filter=test_filter)
 
             pipe.named_steps['clf'].thresh = overall_thresh
-            pipe_out = copy.deepcopy(pipe) # clone() does not include fitted params
+            pipe_out = copy.deepcopy(pipe)  # clone() does not include fitted params
             prepare_pipeline_for_scoring(pipe_out)
             pipe_out.comment = args.saveComment
             now = datetime.datetime.now()
@@ -1552,7 +1575,7 @@ def main():
 
                 imp = pd.DataFrame({'feature': feature_names, 'importance': importances})
                 imp.sort_values('importance', ascending=False, inplace=True)
-                imp.to_csv(file_imp,  sep='\t', index=False)
+                imp.to_csv(file_imp, sep='\t', index=False)
 
         # drop classifier to make room for next method
         pipe.steps = pipe.steps[:-1]
