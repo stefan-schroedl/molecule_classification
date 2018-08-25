@@ -1,6 +1,6 @@
 # molecule_classification
 
-"Auto-Sklearn for Chemistry".
+"[Auto-Sklearn](https://github.com/automl/auto-sklearn) for Chemistry".
 
 ## Overview
 
@@ -9,10 +9,10 @@ example, predict properties like solubility, atomization energies, or biological
 affinities in QSAR projects.
 
 The general purpose is to "throw anything easily computable at the wall and see what 
-sticks". Molecules are input in the form of SMILES strings. From these, different types
-of fingerprints (fixed-sized vectors) can be computed using RDKit. Model training is based 
-on classifiers based on `scikit-learn` or `xgboost`. More advanced representations (e.g., graph
-convolutions) or ML models (deep neural nets) are *not* supported. However, the package
+sticks". Molecules are input in the form of [SMILES](https://en.wikipedia.org/wiki/Simplified_molecular-input_line-entry_system) strings. From these, different types
+of fingerprints (fixed-sized vectors) can be computed using [RDKit](http://www.rdkit.org/). Model training is based 
+on classifiers based on [scikit-learn](http://scikit-learn.org/stable/) or [xgboost](https://github.com/dmlc/xgboost). More advanced representations (e.g., graph
+convolutions) or ML models (e.g., deep neural nets) are *not* supported. However, the package
 does automate hyper-parameter optimization for the supported model types.
 
 The project supplies two scripts:
@@ -25,16 +25,16 @@ Please see the `demo` directory for a usage example.
 
 For one run, a single fingerprinting method and multiple learning methods can be specified,
 which are applied in turn. When multiple fingerprints are specified, e.g., 
-`-fpType ecfp,prop`, their *union* is fed to the classifier. Outputs, including cross 
+`-fpType ecfp4,prop`, their *union* is fed to the classifier. Outputs, including cross 
 validation results, optimization results, plots, and pickled model file, are 
 written under directory experiments/<identifier>.
 
-Hyper-parameter optimization by random search can be triggered by adding the suffix '_optim' 
+Hyper-parameter optimization by random search can be triggered by adding the suffix `_optim` 
 to the classifier name. If the number of optimization iterations (`--optimIter`) exceeds 70%
 of the parameter space, the script automatically switches to exhaustive grid search. Suffix 
-'_optim2' additionally finds a local minimum by optimizing each hyper-parameter individually
+`_optim2` additionally finds a local minimum by optimizing each hyper-parameter individually
 and sequentially. Best parameters are stored in the output directory, and by default are 
-re-used if they exist.
+re-used if they exist (by checking in the output directory *or* the current directory as a backup). 
 
 In general, there are many possible ways to tune the decision threshold for a classifier. In this
 project, it is done by limiting the expected false positive rate (`-maxFPR`). This threshold is
@@ -44,11 +44,11 @@ There are a couple of command line parameters related to dealing with sub-catego
 data; one use case is to combine a large public data set with a smaller but more important proprietary 
 data set. To increase the weight of this subset, we add an indicator column `-weightCat` in the input 
 data, and assign a higher weight using `-catToSampleWeight`. Additionally, if we are interested in the 
-cross validation results `only` on the subset, we use the `-testFilterCat` option. Note that if a 
-`--weightCat`` is specified, cross validation is stratified with respect to it (in addition to the
+cross validation results *only* on the subset, we use the `-testFilterCat` option. Note that if a 
+`--weightCat` is specified, cross validation is stratified with respect to it (in addition to the
 target column, as usual).
 
-`train_mol_class.py` uses configargparse, so all options can be supplied in a configuation file.
+`train_mol_class.py` uses [configargparse](https://github.com/bw2/ConfigArgParse), so all options can be supplied in a configuation file.
 
 
 ```
