@@ -1492,6 +1492,7 @@ def main():
         logging.debug(pipe.steps)
         outs = Parallel(
             n_jobs=args.cvJobs, verbose=verbose_par,
+            backend='multiprocessing',
         )(delayed(_fit_and_score)(clone(pipe), X, y, y_enc, sample_weight_m, test_filter, train_idx, test_idx)
           for (train_idx, test_idx) in cv.split(X, y_enc))
 
@@ -1557,6 +1558,9 @@ def main():
 
         classifier = pipe.named_steps['clf'].classifier
 
+        # drop classifier to make room for next method
+        pipe.steps = pipe.steps[:-1]
+
         # write out feature importances, if available
         if args.refit > 0:
             importances = None
@@ -1570,15 +1574,12 @@ def main():
                 importances /= np.absolute(importances).sum()
 
             if importances is not None:
-                feature_names = get_feature_names(pipe, -2)
+                feature_names = get_feature_names(pipe, -1)
                 file_imp = os.path.join(dir_out, 'importance_%s.tsv' % experiment)
 
                 imp = pd.DataFrame({'feature': feature_names, 'importance': importances})
                 imp.sort_values('importance', ascending=False, inplace=True)
                 imp.to_csv(file_imp, sep='\t', index=False)
-
-        # drop classifier to make room for next method
-        pipe.steps = pipe.steps[:-1]
 
     logging.info('all done with %s' % args.fpType)
 
